@@ -92,12 +92,12 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
                             <p className="text-blue-300 font-medium italic">बोलें "पक्का भेजें" या बटन दबाएं</p>
                         </div>
                         <Button
-                            label="▲ पक्का करें (दबाए रखें)"
+                            label="▲ पक्का भेजें (दबाए रखें)"
                             sublabel="Hold for 1.5 seconds"
                             variant="up"
                             onLongPress={() => setStep('sending')}
                         />
-                        <Button label="▼ रद्द करें (वापस)" variant="down" onPress={onBack} />
+                        <Button label="▼ रद्द करें ('वापस' बोलें)" variant="down" onPress={onBack} />
                     </div>
                 </>
             )}
@@ -125,7 +125,7 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
                         {RECIPIENT.name} को प्राप्त हुए
                     </p>
                     <div className="w-full mt-10">
-                        <Button label="▼ मुख्य मेनू" variant="down" onPress={onBack} />
+                        <Button label="▼ वापस ('वापस' बोलें)" variant="down" onPress={onBack} />
                     </div>
                 </div>
             )}

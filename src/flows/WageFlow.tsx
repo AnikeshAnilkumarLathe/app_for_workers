@@ -81,7 +81,7 @@ export const WageFlow = ({ onBack }: WageFlowProps) => {
                         speak(`${WORKER.daysPresent} दिन। कुल ${earned.toLocaleString('hi-IN')} रुपये।`)
                     }
                 />
-                <Button label="▼ वापस" variant="down" onPress={onBack} />
+                <Button label="▼ वापस ('वापस' बोलें)" variant="down" onPress={onBack} />
             </div>
         </div>
     );

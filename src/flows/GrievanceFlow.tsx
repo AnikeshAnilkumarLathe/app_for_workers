@@ -125,7 +125,7 @@ export const GrievanceFlow = ({ onBack }: GrievanceFlowProps) => {
                             onLongPress={() => setStep('submitted')}
                         />
                         <Button
-                            label="▼ पीछे जाएं"
+                            label="▼ वापस ('वापस' बोलें)"
                             variant="down"
                             onPress={() => setStep('intro')}
                         />
@@ -141,7 +141,7 @@ export const GrievanceFlow = ({ onBack }: GrievanceFlowProps) => {
                     <p className="text-xl">शिकायत नंबर</p>
                     <p className="text-4xl text-blue-400">#{complaintId}</p>
 
-                    <Button label="▼ होम" variant="down" onPress={onBack} />
+                    <Button label="▼ वापस ('वापस' बोलें)" variant="down" onPress={onBack} />
                 </div>
             )}
 
