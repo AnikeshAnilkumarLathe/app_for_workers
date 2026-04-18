@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500&display=swap');
+
+@theme {
+    --font-family-sans: 'Noto Sans Devanagari', sans-serif;
+}
