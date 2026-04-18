@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
 // ── Speak ──────────────────────────────────────────────
 export const speak = (text: string, rate = 0.88): Promise<void> => {
@@ -93,4 +93,77 @@ export const useVoiceRecord = () => {
     }, []);
 
     return { state, audioBlob, startRecording, stopRecording, reset };
+};
+
+// ── Voice Commands (NEW) ───────────────────────────────
+export type VoiceCommand = '1' | '2' | '3' | 'हाँ' | 'नहीं' | 'वापस' | 'unknown';
+
+const COMMAND_MAP: Record<string, VoiceCommand> = {
+    'एक': '1', '1': '1', 'one': '1',
+    'दो': '2', '2': '2', 'two': '2', 'do': '2',
+    'तीन': '3', '3': '3', 'three': '3',
+    'हाँ': 'हाँ', 'हां': 'हाँ', 'ha': 'हाँ', 'yes': 'हाँ',
+    'नहीं': 'नहीं', 'nahi': 'नहीं', 'no': 'नहीं',
+    'वापस': 'वापस', 'back': 'वापस', 'wapas': 'वापस',
+};
+
+const normalise = (transcript: string): VoiceCommand => {
+    const clean = transcript.trim().toLowerCase();
+    for (const key of Object.keys(COMMAND_MAP)) {
+        if (clean.includes(key.toLowerCase())) return COMMAND_MAP[key];
+    }
+    return 'unknown';
+};
+
+export const useVoiceCommands = (
+    onCommand: (cmd: VoiceCommand) => void,
+    enabled = true
+) => {
+    const recognitionRef = useRef<any>(null);
+    const enabledRef = useRef(enabled);
+    enabledRef.current = enabled;
+
+    useEffect(() => {
+        const SR = (window as any).SpeechRecognition
+            || (window as any).webkitSpeechRecognition;
+
+        if (!SR) return;
+
+        const recognition = new SR();
+        recognition.lang = 'hi-IN';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 3;
+
+        recognition.onresult = (e: any) => {
+            if (!enabledRef.current) return;
+            const results = e.results[e.resultIndex];
+
+            for (let i = 0; i < results.length; i++) {
+                const cmd = normalise(results[i].transcript);
+                if (cmd !== 'unknown') {
+                    onCommand(cmd);
+                    return;
+                }
+            }
+        };
+
+        recognition.onerror = (e: any) => {
+            if (e.error === 'no-speech') {
+                recognition.start(); // restart silently
+            }
+        };
+
+        recognition.onend = () => {
+            if (enabledRef.current) recognition.start();
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+
+        return () => {
+            recognition.stop();
+            recognitionRef.current = null;
+        };
+    }, []);
 };

@@ -4,7 +4,7 @@ import { useVolumeKeys } from '../core/useVolumeKeys';
 import { Button } from '../components/Button';
 
 const AMOUNT = 800;
-const RECIPIENT = { name: 'पायल', relation: 'घर', upi: '9876543210@jio' };
+const RECIPIENT = { name: 'घर', relation: 'घर', upi: '9876543210@jio' };
 
 type Step = 'confirm' | 'sending' | 'done';
 
