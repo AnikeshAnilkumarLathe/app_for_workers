@@ -54,26 +54,23 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
 
     // ✅ FIXED: Hardware Interaction Logic
     useVolumeKeys({
-        enabled: step !== 'sending',
         onUp: () => {
             if (step === 'confirm') {
-                // Remind the user of the 'Long Press' requirement
                 playTone(440, 0.1);
                 speak("भेजने के लिए बटन को दबाकर रखें।");
             }
-            if (step === 'done') onBack();
-        },
-        onLongUp: () => {
-            if (step === 'confirm') {
-                setStep('sending');
+            if (step === 'done') {
+                onBack();
             }
         },
+
         onDown: () => {
-            playTone(330, 0.15);
-            onBack();
+            if (step !== 'sending') {
+                playTone(330, 0.15);
+                onBack();
+            }
         },
     });
-
     return (
         <div className="flex flex-col items-center gap-5 px-6 pt-12 pb-8 min-h-screen bg-slate-950 text-white">
             {step === 'confirm' && (
@@ -88,7 +85,7 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
                         </div>
                     </div>
 
-                    <div className="w-full bg-slate-900 rounded-[32px] border-4 border-slate-800 p-10 flex flex-col items-center gap-2 my-4">
+                    <div className="w-full bg-slate-900 rounded-4xl border-4 border-slate-800 p-10 flex flex-col items-center gap-2 my-4">
                         <p className="text-lg text-slate-500 font-medium">भेजने की रकम</p>
                         <p className="text-7xl font-black text-blue-400">₹{AMOUNT}</p>
                     </div>

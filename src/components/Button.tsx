@@ -60,7 +60,7 @@ export default function Button({
 
                 if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
-                playTone(660, 0.3, 'triangle');
+                playTone(660, 0.3);
                 onLongPress();
             }, longPressDuration);
         }

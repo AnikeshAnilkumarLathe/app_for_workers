@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     speak,
     unlockAudioContext,
@@ -92,7 +92,6 @@ export default function App() {
 
     // ✅ Hardware keys (if supported)
     useVolumeKeys({
-        enabled: unlocked && screen === 'home',
         onUp: () => navigateTo(HOME_ITEMS[selected].id as Screen),
         onDown: () => {
             playTone(330, 0.1);
@@ -124,6 +123,7 @@ export default function App() {
 
                     {/* ✅ Virtual unlock button */}
                     <VirtualVolumeControls
+                        onUp={() => { }}
                         onDown={unlock}
                     />
 

@@ -1,47 +1,49 @@
-import React from 'react';
-import { playTone, vibrate } from '../core/Voice';
-
 interface Props {
-    onUp: () => void;
-    onDown: () => void;
-    disabled?: boolean;
+    onUp?: () => void;
+    onDown?: () => void;
+    onLongUp?: () => void;
     onLongDown?: () => void;
 }
 
-export const VirtualVolumeControls = ({ onUp, onDown, disabled }: Props) => {
+export const VirtualVolumeControls = ({
+    onUp,
+    onDown,
+    onLongUp,
+    onLongDown,
+}: Props) => {
     return (
-        <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-50">
+        <div className="fixed bottom-6 right-4 flex flex-col gap-4 z-50">
 
-            {/* UP */}
+            {/* 🔼 Volume Up */}
             <button
-                disabled={disabled}
-                onClick={() => {
-                    if (disabled) return;
-                    vibrate([100, 50, 100]);
-                    playTone(523, 0.15);
-                    onUp();
+                onClick={onUp}
+                onMouseDown={(e) => {
+                    const timer = setTimeout(() => {
+                        onLongUp?.();
+                    }, 800);
+
+                    const clear = () => clearTimeout(timer);
+                    e.currentTarget.onmouseup = clear;
+                    e.currentTarget.onmouseleave = clear;
                 }}
-                className={`w-20 h-20 rounded-full 
-                    ${disabled ? 'bg-green-900 opacity-40' : 'bg-green-600 active:bg-green-700'} 
-                    flex items-center justify-center text-3xl shadow-2xl 
-                    active:scale-95 transition-transform`}
+                className="w-16 h-16 rounded-full bg-green-600 text-white text-2xl shadow-lg active:scale-95"
             >
                 ▲
             </button>
 
-            {/* DOWN */}
+            {/* 🔽 Volume Down */}
             <button
-                disabled={disabled}
-                onClick={() => {
-                    if (disabled) return;
-                    playTone(330, 0.1);
-                    vibrate(50);
-                    onDown();
+                onClick={onDown}
+                onMouseDown={(e) => {
+                    const timer = setTimeout(() => {
+                        onLongDown?.();
+                    }, 800);
+
+                    const clear = () => clearTimeout(timer);
+                    e.currentTarget.onmouseup = clear;
+                    e.currentTarget.onmouseleave = clear;
                 }}
-                className={`w-20 h-20 rounded-full 
-                    ${disabled ? 'bg-red-900 opacity-40' : 'bg-red-600 active:bg-red-700'} 
-                    flex items-center justify-center text-3xl shadow-2xl 
-                    active:scale-95 transition-transform`}
+                className="w-16 h-16 rounded-full bg-red-600 text-white text-2xl shadow-lg active:scale-95"
             >
                 ▼
             </button>

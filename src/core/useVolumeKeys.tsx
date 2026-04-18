@@ -1,4 +1,3 @@
-import React from 'react';
 import { playTone, vibrate } from '../core/Voice';
 
 interface Props {

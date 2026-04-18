@@ -147,35 +147,24 @@ export const GrievanceFlow = ({ onBack }: GrievanceFlowProps) => {
                 </div>
             )}
 
-            {/* 🔥 Virtual Volume Controls */}
             <VirtualVolumeControls
                 onUp={() => {
-                    if (step === 'intro') {
-                        setStep('review');
-                        return;
-                    }
-
-                    if (step === 'submitted') {
-                        onBack();
-                    }
+                    if (step === 'intro') setStep('review');
+                    else if (step === 'submitted') onBack();
                 }}
                 onDown={() => {
                     if (step === 'intro') {
-                        setTagIndex((prev) => (prev + 1) % TAGS.length);
-                        return;
-                    }
-
-                    if (step === 'review') {
+                        const next = (tagIndex + 1) % TAGS.length;
+                        setTagIndex(next);
+                        speak(TAGS[next].label);
+                    } else if (step === 'review') {
                         setStep('intro');
-                        return;
+                    } else {
+                        onBack();
                     }
-
-                    onBack();
                 }}
                 onLongUp={() => {
-                    if (step === 'review') {
-                        setStep('submitted');
-                    }
+                    if (step === 'review') setStep('submitted');
                 }}
                 onLongDown={onBack}
             />
