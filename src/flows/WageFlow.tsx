@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { speak, playTone } from '../core/Voice';
 import { useVolumeKeys } from '../core/useVolumeKeys';
-import { Button } from '../components/Button';
+import Button from '../components/Button';
 
 const WORKER = {
     name: 'रामलाल',

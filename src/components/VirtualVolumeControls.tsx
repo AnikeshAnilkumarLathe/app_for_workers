@@ -5,9 +5,10 @@ interface Props {
     onUp: () => void;
     onDown: () => void;
     disabled?: boolean;
+    onLongDown?: () => void;
 }
 
-export const useVolumeKeys = ({ onUp, onDown, disabled }: Props) => {
+export const VirtualVolumeControls = ({ onUp, onDown, disabled }: Props) => {
     return (
         <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-50">
 

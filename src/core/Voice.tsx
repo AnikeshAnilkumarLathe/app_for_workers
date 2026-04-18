@@ -1,169 +1,155 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 
-// ── Speak ──────────────────────────────────────────────
+// ── Audio Feedback (Haptic & Tones) ──────────────────
+export const vibrate = (pattern: number | number[]) => {
+    if ("vibrate" in navigator) navigator.vibrate(pattern);
+};
+
+export const playTone = (freq: number, duration = 0.15) => {
+    if (!globalAudioCtx) return;
+    const osc = globalAudioCtx.createOscillator();
+    const gain = globalAudioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(globalAudioCtx.destination);
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, globalAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, globalAudioCtx.currentTime + duration);
+    osc.start();
+    osc.stop(globalAudioCtx.currentTime + duration);
+};
+
+// ── TTS Engine ───────────────────────────────────────
+let isSpeaking = false;
+
 export const speak = (text: string, rate = 0.88): Promise<void> => {
     return new Promise((resolve) => {
-        if (!('speechSynthesis' in window)) { resolve(); return; }
         window.speechSynthesis.cancel();
+        isSpeaking = true;
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'hi-IN';
         u.rate = rate;
-        u.pitch = 1.0;
-        u.onend = () => resolve();
-        u.onerror = () => resolve();
+        u.onend = () => {
+            isSpeaking = false;
+            resolve();
+        };
+        u.onerror = () => {
+            isSpeaking = false;
+            resolve();
+        };
         window.speechSynthesis.speak(u);
     });
 };
 
-// ── Audio context unlock (keeps volume keys captured) ──
-let globalAudioCtx: AudioContext | null = null;
-
-export const unlockAudioContext = (): boolean => {
-    if (globalAudioCtx) return true;
-    try {
-        const AC = window.AudioContext || (window as any).webkitAudioContext;
-        globalAudioCtx = new AC();
-        const osc = globalAudioCtx.createOscillator();
-        const gain = globalAudioCtx.createGain();
-        gain.gain.value = 0.001; // silent
-        osc.connect(gain);
-        gain.connect(globalAudioCtx.destination);
-        osc.start();
-        return true;
-    } catch {
-        return false;
-    }
-};
-
-export const playTone = (freq: number, duration = 0.15, type: OscillatorType = 'sine') => {
-    if (!globalAudioCtx) return;
-    try {
-        const osc = globalAudioCtx.createOscillator();
-        const gain = globalAudioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(globalAudioCtx.destination);
-        osc.frequency.value = freq;
-        osc.type = type;
-        gain.gain.setValueAtTime(0.18, globalAudioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, globalAudioCtx.currentTime + duration);
-        osc.start(globalAudioCtx.currentTime);
-        osc.stop(globalAudioCtx.currentTime + duration);
-    } catch { }
-};
-
-// ── Voice recording hook ───────────────────────────────
-export type RecordingState = 'idle' | 'recording' | 'done' | 'error';
-
-export const useVoiceRecord = () => {
-    const mediaRef = useRef<MediaRecorder | null>(null);
-    const chunksRef = useRef<Blob[]>([]);
-    const [state, setState] = useState<RecordingState>('idle');
-    const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-
-    const startRecording = useCallback(async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
-            chunksRef.current = [];
-            recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
-            recorder.onstop = () => {
-                const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                setAudioBlob(blob);
-                setState('done');
-                stream.getTracks().forEach((t) => t.stop());
-            };
-            recorder.start();
-            mediaRef.current = recorder;
-            setState('recording');
-        } catch {
-            setState('error');
-        }
-    }, []);
-
-    const stopRecording = useCallback(() => {
-        if (mediaRef.current && mediaRef.current.state === 'recording') {
-            mediaRef.current.stop();
-        }
-    }, []);
-
-    const reset = useCallback(() => {
-        setState('idle');
-        setAudioBlob(null);
-        chunksRef.current = [];
-    }, []);
-
-    return { state, audioBlob, startRecording, stopRecording, reset };
-};
-
-// ── Voice Commands (NEW) ───────────────────────────────
+// ── Voice Command Normalization ──────────────────────
 export type VoiceCommand = '1' | '2' | '3' | 'हाँ' | 'नहीं' | 'वापस' | 'unknown';
 
-const COMMAND_MAP: Record<string, VoiceCommand> = {
-    'एक': '1', '1': '1', 'one': '1',
-    'दो': '2', '2': '2', 'two': '2', 'do': '2',
-    'तीन': '3', '3': '3', 'three': '3',
-    'हाँ': 'हाँ', 'हां': 'हाँ', 'ha': 'हाँ', 'yes': 'हाँ',
-    'नहीं': 'नहीं', 'nahi': 'नहीं', 'no': 'नहीं',
-    'वापस': 'वापस', 'back': 'वापस', 'wapas': 'वापस',
-};
-
 const normalise = (transcript: string): VoiceCommand => {
-    const clean = transcript.trim().toLowerCase();
-    for (const key of Object.keys(COMMAND_MAP)) {
-        if (clean.includes(key.toLowerCase())) return COMMAND_MAP[key];
-    }
+    const clean = transcript.toLowerCase().trim();
+    if (/\b(1|ek|one|एक)\b/.test(clean)) return '1';
+    if (/\b(2|do|two|दो)\b/.test(clean)) return '2';
+    if (/\b(3|teen|three|तीन)\b/.test(clean)) return '3';
+    if (/\b(ha|haan|yes|sahi|हाँ|हां)\b/.test(clean)) return 'हाँ';
+    if (/\b(na|nahi|no|cancel|नहीं)\b/.test(clean)) return 'नहीं';
+    if (/\b(back|piche|wapas|वापस)\b/.test(clean)) return 'वापस';
     return 'unknown';
 };
 
-export const useVoiceCommands = (
-    onCommand: (cmd: VoiceCommand) => void,
-    enabled = true
-) => {
+// ── Stable Voice Hook ────────────────────────────────
+// onCommand is stored in a ref so the recognition session never restarts
+// just because the parent re-renders or changes step state.
+export const useVoiceCommands = (onCommand: (cmd: VoiceCommand) => void, enabled = true) => {
+    const onCommandRef = useRef(onCommand);
+    const isActiveRef = useRef(enabled);
     const recognitionRef = useRef<any>(null);
-    const enabledRef = useRef(enabled);
-    enabledRef.current = enabled;
+    const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Keep the callback current without triggering effect re-runs
+    useEffect(() => {
+        onCommandRef.current = onCommand;
+    }, [onCommand]);
 
     useEffect(() => {
-        const SR = (window as any).SpeechRecognition
-            || (window as any).webkitSpeechRecognition;
+        isActiveRef.current = enabled;
 
-        if (!SR) return;
+        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-        const recognition = new SR();
-        recognition.lang = 'hi-IN';
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 3;
+        if (!SR || !enabled) {
+            if (recognitionRef.current) {
+                try { recognitionRef.current.stop(); } catch (_) { }
+                recognitionRef.current = null;
+            }
+            return;
+        }
 
-        recognition.onresult = (e: any) => {
-            if (!enabledRef.current) return;
-            const results = e.results[e.resultIndex];
+        const startRecognition = () => {
+            if (!isActiveRef.current) return;
 
-            for (let i = 0; i < results.length; i++) {
-                const cmd = normalise(results[i].transcript);
-                if (cmd !== 'unknown') {
-                    onCommand(cmd);
+            // Wait for TTS to finish before listening, prevents mic picking up speaker output
+            if (isSpeaking) {
+                restartTimerRef.current = setTimeout(startRecognition, 300);
+                return;
+            }
+
+            const recognition = new SR();
+            recognition.lang = 'hi-IN';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 3;
+
+            recognition.onresult = (e: any) => {
+                for (let i = 0; i < e.results[0].length; i++) {
+                    const transcript = e.results[0][i].transcript;
+                    const cmd = normalise(transcript);
+                    if (cmd !== 'unknown') {
+                        vibrate([100, 50, 100]);
+                        onCommandRef.current(cmd);
+                        return;
+                    }
+                }
+            };
+
+            recognition.onend = () => {
+                if (isActiveRef.current) {
+                    restartTimerRef.current = setTimeout(startRecognition, 150);
+                }
+            };
+
+            recognition.onerror = (e: any) => {
+                if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                    isActiveRef.current = false;
                     return;
                 }
+                if (isActiveRef.current) {
+                    restartTimerRef.current = setTimeout(startRecognition, 500);
+                }
+            };
+
+            try {
+                recognition.start();
+                recognitionRef.current = recognition;
+            } catch (_) {
+                restartTimerRef.current = setTimeout(startRecognition, 500);
             }
         };
 
-        recognition.onerror = (e: any) => {
-            if (e.error === 'no-speech') {
-                recognition.start(); // restart silently
-            }
-        };
-
-        recognition.onend = () => {
-            if (enabledRef.current) recognition.start();
-        };
-
-        recognition.start();
-        recognitionRef.current = recognition;
+        startRecognition();
 
         return () => {
-            recognition.stop();
-            recognitionRef.current = null;
+            isActiveRef.current = false;
+            if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+            if (recognitionRef.current) {
+                try { recognitionRef.current.stop(); } catch (_) { }
+                recognitionRef.current = null;
+            }
         };
-    }, []);
+    }, [enabled]); // Only depends on enabled — NOT onCommand
+};
+
+// Audio Context Logic
+let globalAudioCtx: AudioContext | null = null;
+export const unlockAudioContext = () => {
+    if (globalAudioCtx) return true;
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    globalAudioCtx = new AC();
+    return true;
 };

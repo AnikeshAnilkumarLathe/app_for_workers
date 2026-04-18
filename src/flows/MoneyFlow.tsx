@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { speak, playTone } from '../core/Voice';
+import { useEffect, useState, useCallback } from 'react';
+import { speak, playTone, useVoiceCommands, vibrate } from '../core/Voice';
 import { useVolumeKeys } from '../core/useVolumeKeys';
-import { Button } from '../components/Button';
+import Button from '../components/Button';
 
 const AMOUNT = 800;
 const RECIPIENT = { name: 'घर', relation: 'घर', upi: '9876543210@jio' };
@@ -15,30 +15,58 @@ interface MoneyFlowProps {
 export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
     const [step, setStep] = useState<Step>('confirm');
 
+    // ✅ FIXED: Robust Audio/Haptic Feedback Loop
     useEffect(() => {
         if (step === 'confirm') {
-            speak(`${RECIPIENT.name} को ₹${AMOUNT} भेजना है? पक्का करने के लिए Volume Up को देर तक दबाएं।`);
+            vibrate(100);
+            speak(`${RECIPIENT.name} को ₹${AMOUNT} भेजना है? पक्का करने के लिए ऊपर वाला बटन दबाकर रखें।`);
         }
         if (step === 'sending') {
+            vibrate([200, 100, 200]); // Intentionality pulse
             speak('भेज रहे हैं...');
-            setTimeout(() => setStep('done'), 2000);
+
+            // Artificial delay to simulate processing & allow feedback to play
+            const timer = setTimeout(() => setStep('done'), 2500);
+            return () => clearTimeout(timer);
         }
         if (step === 'done') {
-            playTone(660, 0.2, 'triangle');
-            setTimeout(() => playTone(880, 0.3, 'triangle'), 200);
-            speak(`${RECIPIENT.name} को ₹${AMOUNT} भेज दिए।`);
+            vibrate([50, 30, 50, 30, 300]); // Success pattern
+            playTone(660, 0.2);
+            setTimeout(() => playTone(880, 0.4), 150);
+            speak(`${RECIPIENT.name} को ₹${AMOUNT} सफलतापूर्वक भेज दिए गए हैं।`);
         }
     }, [step]);
 
+    // ✅ FIXED: Voice Command Integration (Fail-safe)
+    const handleVoice = useCallback((cmd: string) => {
+        if (step === 'confirm' && (cmd === 'हाँ' || cmd === 'yes')) {
+            // We don't trigger 'sending' immediately for safety. 
+            // We guide the user to the physical button to ensure intent.
+            speak("ठीक है। अब पक्का करने के लिए ऊपर वाला बटन दबाकर रखें।");
+            vibrate(300);
+        }
+        if (cmd === 'वापस' || cmd === 'back') {
+            onBack();
+        }
+    }, [step, onBack]);
+
+    useVoiceCommands(handleVoice, step !== 'sending');
+
+    // ✅ FIXED: Hardware Interaction Logic
     useVolumeKeys({
         enabled: step !== 'sending',
         onUp: () => {
-            if (step === 'confirm')
-                speak(`${RECIPIENT.name} को ₹${AMOUNT} भेजना है? Volume Up देर तक दबाएं।`);
+            if (step === 'confirm') {
+                // Remind the user of the 'Long Press' requirement
+                playTone(440, 0.1);
+                speak("भेजने के लिए बटन को दबाकर रखें।");
+            }
             if (step === 'done') onBack();
         },
         onLongUp: () => {
-            if (step === 'confirm') setStep('sending');
+            if (step === 'confirm') {
+                setStep('sending');
+            }
         },
         onDown: () => {
             playTone(330, 0.15);
@@ -47,60 +75,65 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
     });
 
     return (
-        <div className="flex flex-col items-center gap-5 px-4 pt-8 pb-6 min-h-screen bg-slate-900 text-white">
-
+        <div className="flex flex-col items-center gap-5 px-6 pt-12 pb-8 min-h-screen bg-slate-950 text-white">
             {step === 'confirm' && (
                 <>
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="w-18 h-18 rounded-full bg-blue-700 flex items-center justify-center text-3xl font-medium w-[72px] h-[72px]">
+                    <div className="flex flex-col items-center gap-4 mt-4">
+                        <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-5xl shadow-lg shadow-blue-900/20">
                             {RECIPIENT.name[0]}
                         </div>
-                        <p className="text-xl font-medium">{RECIPIENT.name}</p>
-                        <p className="text-sm text-slate-400">{RECIPIENT.relation}</p>
+                        <div className="text-center">
+                            <p className="text-3xl font-bold">{RECIPIENT.name}</p>
+                            <p className="text-xl text-slate-400">{RECIPIENT.relation}</p>
+                        </div>
                     </div>
 
-                    <div className="w-full bg-slate-800 rounded-2xl border border-slate-700 p-7 flex flex-col items-center gap-2">
-                        <p className="text-sm text-slate-400">भेजने की रकम</p>
-                        <p className="text-5xl font-medium">₹{AMOUNT}</p>
+                    <div className="w-full bg-slate-900 rounded-[32px] border-4 border-slate-800 p-10 flex flex-col items-center gap-2 my-4">
+                        <p className="text-lg text-slate-500 font-medium">भेजने की रकम</p>
+                        <p className="text-7xl font-black text-blue-400">₹{AMOUNT}</p>
                     </div>
 
-                    <p className="text-sm text-slate-500 text-center">
-                        Volume Up देर तक दबाएं — पैसे भेजें
-                    </p>
-
-                    <div className="flex flex-col gap-3 w-full mt-auto">
+                    <div className="flex flex-col gap-4 w-full mt-auto">
+                        <div className="p-4 bg-blue-900/20 border-2 border-dashed border-blue-500/50 rounded-2xl text-center">
+                            <p className="text-blue-300 font-medium italic">बोलें "हाँ" या बटन दबाएं</p>
+                        </div>
                         <Button
-                            label="▲ पक्का करें (देर तक दबाएं)"
-                            sublabel="1.5 सेकंड दबाए रखें"
+                            label="▲ पक्का करें (दबाए रखें)"
+                            sublabel="Hold for 1.5 seconds"
                             variant="up"
                             onLongPress={() => setStep('sending')}
                         />
-                        <Button label="▼ वापस" variant="down" onPress={onBack} />
+                        <Button label="▼ रद्द करें (वापस)" variant="down" onPress={onBack} />
                     </div>
                 </>
             )}
 
             {step === 'sending' && (
-                <div className="flex flex-col items-center justify-center flex-1 gap-5">
-                    <div className="w-12 h-12 border-4 border-slate-700 border-t-green-400 rounded-full animate-spin" />
-                    <p className="text-lg text-slate-400">भेज रहे हैं...</p>
+                <div className="flex flex-col items-center justify-center flex-1 gap-8">
+                    <div className="relative">
+                        <div className="w-24 h-24 border-8 border-slate-800 border-t-blue-500 rounded-full animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center text-2xl">💸</div>
+                    </div>
+                    <p className="text-3xl font-bold animate-pulse">पैसे भेज रहे हैं...</p>
                 </div>
             )}
 
             {step === 'done' && (
-                <>
-                    <div className="w-[88px] h-[88px] rounded-full bg-green-900 border-2 border-green-400 flex items-center justify-center text-4xl text-green-400 mt-10">
+                <div className="flex flex-col items-center justify-center flex-1 w-full gap-6">
+                    <div className="w-32 h-32 rounded-full bg-green-500/10 border-4 border-green-500 flex items-center justify-center text-6xl text-green-500 mb-4 animate-bounce">
                         ✓
                     </div>
-                    <p className="text-4xl font-medium">₹{AMOUNT} भेज दिए</p>
-                    <p className="text-sm text-slate-400">
-                        {RECIPIENT.name} को —{' '}
-                        {new Date().toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                    <div className="w-full mt-auto">
-                        <Button label="▼ वापस" variant="down" onPress={onBack} />
+                    <div className="text-center">
+                        <p className="text-5xl font-black mb-2">₹{AMOUNT}</p>
+                        <p className="text-2xl text-green-400 font-bold uppercase tracking-widest">सफल रहा</p>
                     </div>
-                </>
+                    <p className="text-slate-400 text-lg">
+                        {RECIPIENT.name} को प्राप्त हुए
+                    </p>
+                    <div className="w-full mt-10">
+                        <Button label="▼ मुख्य मेनू" variant="down" onPress={onBack} />
+                    </div>
+                </div>
             )}
         </div>
     );

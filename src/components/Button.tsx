@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { playTone } from '../core/Voice';
 
 interface ButtonProps {
@@ -11,7 +11,7 @@ interface ButtonProps {
     disabled?: boolean;
 }
 
-export const Button = ({
+export default function Button({
     label,
     sublabel,
     onPress,
@@ -19,13 +19,14 @@ export const Button = ({
     longPressDuration = 1500,
     variant = 'neutral',
     disabled = false,
-}: ButtonProps) => {
+}: ButtonProps) {
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const firedRef = useRef(false);
+    const rafRef = useRef<number | null>(null);
+    const startRef = useRef<number>(0);
+
     const [pct, setPct] = useState(0);
     const [pressing, setPressing] = useState(false);
-    const startRef = useRef<number>(0);
-    const rafRef = useRef<number | null>(null);
 
     const variantClass = {
         up: 'bg-green-900 border-green-400 text-white',
@@ -35,6 +36,7 @@ export const Button = ({
 
     const startPress = () => {
         if (disabled) return;
+
         firedRef.current = false;
         setPressing(true);
         startRef.current = Date.now();
@@ -44,15 +46,20 @@ export const Button = ({
                 const elapsed = Date.now() - startRef.current;
                 const p = Math.min((elapsed / longPressDuration) * 100, 100);
                 setPct(p);
-                if (p < 100) rafRef.current = requestAnimationFrame(tick);
+                if (p < 100) {
+                    rafRef.current = requestAnimationFrame(tick);
+                }
             };
+
             rafRef.current = requestAnimationFrame(tick);
 
             timerRef.current = setTimeout(() => {
                 firedRef.current = true;
                 setPressing(false);
                 setPct(0);
+
                 if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
                 playTone(660, 0.3, 'triangle');
                 onLongPress();
             }, longPressDuration);
@@ -61,41 +68,58 @@ export const Button = ({
 
     const endPress = () => {
         if (disabled) return;
+
         if (timerRef.current) clearTimeout(timerRef.current);
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
         setPressing(false);
         setPct(0);
-        if (!firedRef.current) {
+
+        if (!firedRef.current && onPress) {
             playTone(variant === 'up' ? 523 : 330, 0.15);
-            onPress?.();
+            onPress();
         }
     };
+
+    // ✅ Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, []);
 
     return (
         <button
             onPointerDown={startPress}
             onPointerUp={endPress}
             onPointerLeave={endPress}
+            onPointerCancel={endPress}
             disabled={disabled}
+            style={{ touchAction: 'none' }}
             className={`
-        relative w-full min-h-20 rounded-2xl border-2
-        flex flex-col items-center justify-center gap-1
-        px-4 py-4 overflow-hidden select-none
-        text-[22px] font-medium
-        disabled:opacity-40 disabled:cursor-not-allowed
-        ${variantClass}
-      `}
+                relative w-full min-h-20 rounded-2xl border-2
+                flex flex-col items-center justify-center gap-1
+                px-4 py-4 overflow-hidden select-none
+                text-[22px] font-medium
+                disabled:opacity-40 disabled:cursor-not-allowed
+                ${variantClass}
+            `}
         >
             {pressing && onLongPress && (
                 <div
-                    className="absolute bottom-0 left-0 h-1 bg-yellow-400 transition-all duration-75"
+                    className="absolute bottom-0 left-0 h-1 bg-yellow-400"
                     style={{ width: `${pct}%` }}
                 />
             )}
+
             <span>{label}</span>
+
             {sublabel && (
-                <span className="text-[13px] font-normal opacity-70">{sublabel}</span>
+                <span className="text-[13px] font-normal opacity-70">
+                    {sublabel}
+                </span>
             )}
         </button>
     );
-};
+}
