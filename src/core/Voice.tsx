@@ -95,6 +95,7 @@ export const useVoiceCommands = (onCommand: (cmd: VoiceCommand) => void, enabled
     const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isListeningRef = useRef(false);
     const isStartingRef = useRef(false);
+    const lastStartAttemptRef = useRef<number>(0);
 
     // Keep the callback current without triggering effect re-runs
     useEffect(() => {
@@ -127,6 +128,7 @@ export const useVoiceCommands = (onCommand: (cmd: VoiceCommand) => void, enabled
 
             console.log('[Speech] Starting recognition...');
             isStartingRef.current = true;
+            lastStartAttemptRef.current = Date.now();
 
             if (recognitionRef.current) {
                 try { recognitionRef.current.abort(); } catch (e) {}
@@ -254,6 +256,27 @@ export const useVoiceCommands = (onCommand: (cmd: VoiceCommand) => void, enabled
 
         startRecognition();
 
+        // 🔥 WATCHDOG: Browser can silently drop mic access or stall start() after long idle periods
+        const watchdogTimer = setInterval(() => {
+            if (!isActiveRef.current || isSpeaking || window.speechSynthesis.speaking) return;
+
+            const now = Date.now();
+            const timeSinceStart = now - lastStartAttemptRef.current;
+
+            if (isStartingRef.current && timeSinceStart > 5000) {
+                console.warn('[Speech] Watchdog: Mic stuck starting for 5s. Force restarting.');
+                isStartingRef.current = false;
+                isListeningRef.current = false;
+                try { recognitionRef.current?.abort(); } catch (_) {}
+                if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+                startRecognition();
+            } else if (!isListeningRef.current && !isStartingRef.current) {
+                console.warn('[Speech] Watchdog: Mic dropped silently. Restarting.');
+                if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+                startRecognition();
+            }
+        }, 2500);
+
         return () => {
             isActiveRef.current = false;
             isListeningRef.current = false;
@@ -263,6 +286,7 @@ export const useVoiceCommands = (onCommand: (cmd: VoiceCommand) => void, enabled
             }
             if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
             if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+            clearInterval(watchdogTimer);
             if (recognitionRef.current) {
                 try { recognitionRef.current.abort(); } catch (_) { }
                 recognitionRef.current = null;

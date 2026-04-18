@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     speak,
     unlockAudioContext,
@@ -13,8 +13,9 @@ import { VirtualVolumeControls } from './components/VirtualVolumeControls';
 import { WageFlow } from './flows/WageFlow';
 import { MoneyFlow } from './flows/MoneyFlow';
 import { GrievanceFlow } from './flows/GrievanceFlow';
+import { AuthFlow } from './flows/AuthFlow';
 
-type Screen = 'home' | 'wage' | 'money' | 'grievance';
+type Screen = 'home' | 'wage' | 'money' | 'grievance' | 'auth';
 
 const HOME_ITEMS = [
     { id: 'wage', label: 'वेतन पर्ची', icon: '📄', sub: 'आज कितना बना' },
@@ -26,6 +27,7 @@ export default function App() {
     const [screen, setScreen] = useState<Screen>('home');
     const [unlocked, setUnlocked] = useState(false);
     const [selected, setSelected] = useState(0);
+    const hasSpokenIntroRef = useRef(false);
 
     // ✅ Navigation
     const navigateTo = useCallback((id: Screen) => {
@@ -44,7 +46,6 @@ export default function App() {
             navigateTo('grievance');
         } else if (cmds.includes('back')) {
             setScreen('home');
-            speak('मुख्य मेनू पर वापस आ गए');
         }
     }, [navigateTo]);
 
@@ -79,19 +80,20 @@ export default function App() {
             playTone(440, 0.2);
             vibrate(200);
 
-            await speak('नमस्ते मजदूर साथी।');
-            await speak('वेतन देखने के लिए "वेतन" बोलें। पैसे भेजने के लिए "पैसे भेजें" बोलें। शिकायत के लिए "शिकायत" बोलें।');
-            await speak('बदलने के लिए नीचे वाला बटन। चुनने के लिए ऊपर वाला बटन।');
+            // Trigger Face Lock Auth Flow
+            setScreen('auth');
         }
     };
 
-    // ✅ Speak selection
+    // ✅ Speak full menu when entering home (ONLY ONCE)
     useEffect(() => {
         if (unlocked && screen === 'home') {
-            const item = HOME_ITEMS[selected];
-            speak(`विकल्प ${selected + 1}: ${item.label}। ${item.sub}`);
+            if (!hasSpokenIntroRef.current) {
+                hasSpokenIntroRef.current = true;
+                speak('मेनू। वेतन देखने के लिए "वेतन" बोलें। पैसे भेजने के लिए "पैसे भेजें" बोलें। शिकायत के लिए "शिकायत" बोलें। या नीचे वाले बटन से बदलें।');
+            }
         }
-    }, [selected, unlocked, screen]);
+    }, [unlocked, screen]);
 
     // ✅ Hardware keys (if supported)
     useVolumeKeys({
@@ -99,11 +101,14 @@ export default function App() {
         onDown: () => {
             playTone(330, 0.1);
             vibrate(50);
-            setSelected((prev) => (prev + 1) % HOME_ITEMS.length);
+            const next = (selected + 1) % HOME_ITEMS.length;
+            setSelected(next);
+            speak(`विकल्प ${next + 1}: ${HOME_ITEMS[next].label}। ${HOME_ITEMS[next].sub}`);
         },
     });
 
     // ── Routing ───────────────────────────────
+    if (screen === 'auth') return <AuthFlow onSuccess={() => setScreen('home')} />;
     if (screen === 'wage') return <WageFlow onBack={() => setScreen('home')} />;
     if (screen === 'money') return <MoneyFlow onBack={() => setScreen('home')} />;
     if (screen === 'grievance') return <GrievanceFlow onBack={() => setScreen('home')} />;
@@ -176,7 +181,9 @@ export default function App() {
                         onDown={() => {
                             playTone(330, 0.1);
                             vibrate(50);
-                            setSelected((prev) => (prev + 1) % HOME_ITEMS.length);
+                            const next = (selected + 1) % HOME_ITEMS.length;
+                            setSelected(next);
+                            speak(`विकल्प ${next + 1}: ${HOME_ITEMS[next].label}। ${HOME_ITEMS[next].sub}`);
                         }}
                     />
                 </>
