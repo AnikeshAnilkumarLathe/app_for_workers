@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { speak, playTone } from '../core/Voice';
+import { useCallback, useEffect } from 'react';
+import { speak, playTone, useVoiceCommands } from '../core/Voice';
 import { useVolumeKeys } from '../core/useVolumeKeys';
 import Button from '../components/Button';
 
@@ -25,6 +25,16 @@ export const WageFlow = ({ onBack }: WageFlowProps) => {
             `${WORKER.month} महीने में ${WORKER.daysPresent} दिन काम हुआ। कुल ${earned.toLocaleString('hi-IN')} रुपये बने हैं।`
         );
     }, []);
+
+    const handleVoice = useCallback((cmds: string[]) => {
+        if (cmds.includes('repeat')) {
+            speak(`${WORKER.daysPresent} दिन। कुल ${earned.toLocaleString('hi-IN')} रुपये।`);
+        } else if (cmds.includes('back')) {
+            onBack();
+        }
+    }, [onBack]);
+
+    useVoiceCommands(handleVoice, true);
 
     useVolumeKeys({
         onUp: () => {

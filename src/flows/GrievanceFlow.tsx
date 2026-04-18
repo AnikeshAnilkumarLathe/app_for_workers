@@ -36,43 +36,41 @@ export const GrievanceFlow = ({ onBack }: GrievanceFlowProps) => {
     useEffect(() => {
         if (step === 'intro') {
             vibrate(100);
-            speak('शिकायत दर्ज करें। नीचे से बदलें। ऊपर से चुनें।');
+            const options = TAGS.map((t, i) => `विकल्प ${i + 1}: ${t.label}`).join('। ');
+            speak(`शिकायत दर्ज करें। ${options}। चुनने के लिए शिकायत का नाम बोलें।`);
         }
 
         if (step === 'review') {
             vibrate(200);
-            speak(`आपने चुना: ${selectedTag.label}`);
+            speak(`आपने चुना: ${selectedTag.label}। क्या ये सही है? पक्का करने के लिए "पक्का भेजें" बोलें।`);
         }
 
         if (step === 'submitted') {
             vibrate([50, 50, 400]);
             playTone(880, 0.4);
-            speak(`शिकायत नंबर ${complaintId} दर्ज हो गई`);
+            speak(`शिकायत नंबर ${complaintId} दर्ज हो गई है। वापस जाने के लिए "होम" बोलें।`);
         }
     }, [step, selectedTag.label, complaintId]);
 
-    // ✅ STATE-DRIVEN SPEECH (MAIN FIX)
-    useEffect(() => {
-        if (step === 'intro') {
-            speak(`विकल्प ${tagIndex + 1}: ${TAGS[tagIndex].label}`);
-        }
-    }, [tagIndex, step]);
-
     // 🎤 Voice commands
     const handleVoice = useCallback(
-        (cmd: VoiceCommand) => {
-            if (cmd === 'वापस') {
+        (cmds: VoiceCommand) => {
+            if (cmds.includes('back')) {
                 onBack();
                 return;
             }
 
-            if (cmd === '1') {
-                setStep('review');
-                return;
-            }
-
-            if (cmd === 'हाँ' && step === 'review') {
-                setStep('submitted');
+            if (step === 'intro') {
+                if (cmds.includes('tag_pay') || cmds.includes('1')) { setTagIndex(0); setStep('review'); }
+                else if (cmds.includes('tag_abuse') || cmds.includes('2')) { setTagIndex(1); setStep('review'); }
+                else if (cmds.includes('tag_safety') || cmds.includes('3')) { setTagIndex(2); setStep('review'); }
+                else if (cmds.includes('tag_overtime') || cmds.includes('4')) { setTagIndex(3); setStep('review'); }
+                else if (cmds.includes('yes')) { setStep('review'); }
+            } else if (step === 'review') {
+                if (cmds.includes('yes')) setStep('submitted');
+                else if (cmds.includes('no')) setStep('intro');
+            } else if (step === 'submitted') {
+                if (cmds.includes('yes') || cmds.includes('back')) onBack();
             }
         },
         [step, onBack]
@@ -156,7 +154,7 @@ export const GrievanceFlow = ({ onBack }: GrievanceFlowProps) => {
                     if (step === 'intro') {
                         const next = (tagIndex + 1) % TAGS.length;
                         setTagIndex(next);
-                        speak(TAGS[next].label);
+                        speak(`विकल्प ${next + 1}: ${TAGS[next].label}`);
                     } else if (step === 'review') {
                         setStep('intro');
                     } else {

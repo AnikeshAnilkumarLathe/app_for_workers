@@ -35,11 +35,14 @@ export default function App() {
     }, []);
 
     // ✅ Voice commands
-    const handleCommand = useCallback((cmd: VoiceCommand) => {
-        if (cmd === '1' || cmd === '2' || cmd === '3') {
-            const index = Number(cmd) - 1;
-            navigateTo(HOME_ITEMS[index].id as Screen);
-        } else if (cmd === 'वापस') {
+    const handleCommand = useCallback((cmds: VoiceCommand) => {
+        if (cmds.includes('wage') || cmds.includes('1')) {
+            navigateTo('wage');
+        } else if (cmds.includes('money') || cmds.includes('2')) {
+            navigateTo('money');
+        } else if (cmds.includes('grievance') || cmds.includes('3')) {
+            navigateTo('grievance');
+        } else if (cmds.includes('back')) {
             setScreen('home');
             speak('मुख्य मेनू पर वापस आ गए');
         }
@@ -76,8 +79,8 @@ export default function App() {
             playTone(440, 0.2);
             vibrate(200);
 
-            await speak('नमस्ते मजदूर साथी। आपके लिए तीन विकल्प हैं।');
-            await speak('एक: वेतन पर्ची। दो: पैसे भेजें। तीन: शिकायत।');
+            await speak('नमस्ते मजदूर साथी।');
+            await speak('वेतन देखने के लिए "वेतन" बोलें। पैसे भेजने के लिए "पैसे भेजें" बोलें। शिकायत के लिए "शिकायत" बोलें।');
             await speak('बदलने के लिए नीचे वाला बटन। चुनने के लिए ऊपर वाला बटन।');
         }
     };
@@ -162,7 +165,7 @@ export default function App() {
 
                     <footer className="mt-auto p-4 bg-slate-900/50 rounded-2xl border border-slate-800 text-center">
                         <p className="text-slate-400">
-                            बोलें: <span className="text-white font-bold">"1, 2, 3"</span> या{" "}
+                            बोलें: <span className="text-white font-bold">"वेतन", "पैसे भेजें", "शिकायत"</span> या{" "}
                             <span className="text-white font-bold text-lg">"वापस"</span>
                         </p>
                     </footer>

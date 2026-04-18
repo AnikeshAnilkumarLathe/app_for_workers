@@ -19,7 +19,7 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
     useEffect(() => {
         if (step === 'confirm') {
             vibrate(100);
-            speak(`${RECIPIENT.name} को ₹${AMOUNT} भेजना है? पक्का करने के लिए ऊपर वाला बटन दबाकर रखें।`);
+            speak(`${RECIPIENT.name} को ₹${AMOUNT} भेजना है? पक्का करने के लिए "पक्का भेजें" बोलें या ऊपर वाला बटन दबाकर रखें।`);
         }
         if (step === 'sending') {
             vibrate([200, 100, 200]); // Intentionality pulse
@@ -38,14 +38,11 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
     }, [step]);
 
     // ✅ FIXED: Voice Command Integration (Fail-safe)
-    const handleVoice = useCallback((cmd: string) => {
-        if (step === 'confirm' && (cmd === 'हाँ' || cmd === 'yes')) {
-            // We don't trigger 'sending' immediately for safety. 
-            // We guide the user to the physical button to ensure intent.
-            speak("ठीक है। अब पक्का करने के लिए ऊपर वाला बटन दबाकर रखें।");
-            vibrate(300);
+    const handleVoice = useCallback((cmds: string[]) => {
+        if (step === 'confirm' && cmds.includes('yes')) {
+            setStep('sending');
         }
-        if (cmd === 'वापस' || cmd === 'back') {
+        if (cmds.includes('back') || cmds.includes('no')) {
             onBack();
         }
     }, [step, onBack]);
@@ -92,7 +89,7 @@ export const MoneyFlow = ({ onBack }: MoneyFlowProps) => {
 
                     <div className="flex flex-col gap-4 w-full mt-auto">
                         <div className="p-4 bg-blue-900/20 border-2 border-dashed border-blue-500/50 rounded-2xl text-center">
-                            <p className="text-blue-300 font-medium italic">बोलें "हाँ" या बटन दबाएं</p>
+                            <p className="text-blue-300 font-medium italic">बोलें "पक्का भेजें" या बटन दबाएं</p>
                         </div>
                         <Button
                             label="▲ पक्का करें (दबाए रखें)"
